@@ -1,0 +1,11 @@
+Interaction patch applied on top of the QGIS-width-corrected export.
+
+Selected behavior:
+- A3: full popup opens on click only; hover does not open or close it.
+- B2: hover highlight is a separate noninteractive overlay, using the QGIS project's selection yellow (#FFFF00).
+- C4: mouse hit width is max(10 px, visible white-casing width + 4 px).
+
+Implementation:
+- The white casing and colored line remain visually unchanged and are now noninteractive.
+- A separate invisible GeoJSON path receives mouse/click events and owns the popup.
+- A separate highlight GeoJSON path is cleared/rebuilt on hover and cannot capture pointer events.

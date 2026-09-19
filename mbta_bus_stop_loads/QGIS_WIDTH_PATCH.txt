@@ -1,0 +1,7 @@
+This copy changes only the Bus Stop Segments Leaflet stroke weights to reproduce the QGIS data-defined width rules:
+
+Colored stroke:  load_sum / 2000 mm
+White casing:    load_sum / 2000 + 0.6 mm
+Conversion:      3.8 px/mm (matching qgis2web current fixed-width conversion)
+
+The original exported colors, graduated class breaks, caps, joins, data, and layer ordering are unchanged.
