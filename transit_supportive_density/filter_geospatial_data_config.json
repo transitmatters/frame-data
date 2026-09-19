@@ -1,0 +1,17 @@
+{
+  "filter_box": {
+    "west": -71.47,
+    "east": -70.83,
+    "south": 42.05,
+    "north": 42.58
+  },
+  "data_directory": "data",
+  "files": [
+    "WebexportdatasetPopulationdensitywithin14mi_1.js",
+    "Regionswithtransitsupportivedensity_2.js",
+    "Rapidtransitstationsbuffered_3.js",
+    "Labels_3.js",
+    "RapidtransitlinesmanualShapeFile_4.js",
+    "RapidtransitstationsmanualShapeFile_5.js"
+  ]
+}

@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet.photon.css">
+        <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+        #map {
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        </style>
+        <title>Neighborhoods with density that support heavy rail</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/multi-style-layer.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="data/WebexportdatasetPopulationdensitywithin14mi_1.js"></script>
+        <script src="data/Regionswithtransitsupportivedensity_2.js"></script>
+        <script src="data/Rapidtransitstationsbuffered_3.js"></script>
+        <script src="data/Labels_3.js"></script>
+        <script src="data/RapidtransitlinesmanualShapeFile_4.js"></script>
+        <script src="data/RapidtransitstationsmanualShapeFile_5.js"></script>
+        <script>
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        })
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/qgis2web/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // modify popup if contains media
+        function addClassToPopupIfMedia(content, popup) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            var imgTd = tempDiv.querySelector('td img');
+            if (imgTd) {
+                var src = imgTd.getAttribute('src');
+                if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+                    popup._contentNode.classList.add('media');
+                    var img = popup._contentNode.querySelector('td img');
+                    if (img) {
+                        // If already loaded (cache), update immediately
+                        if (img.complete && img.naturalHeight > 0) {
+                            popup.update();
+                        } else {
+                            img.addEventListener('load', function() {
+                                popup.update();
+                            });
+                            img.addEventListener('error', function() {
+                                popup.update();
+                            });
+                        }
+                    }
+                } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = src;
+                    imgTd.parentNode.replaceChild(audio, imgTd);
+                    popup._contentNode.classList.add('media');
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.src = src;
+                    video.style.width = "400px";
+                    video.style.height = "300px";
+                    video.style.maxHeight = "60vh";
+                    video.style.maxWidth = "60vw";
+                    imgTd.parentNode.replaceChild(video, imgTd);
+                    popup._contentNode.classList.add('media');
+                    // Aggiorna il popup quando il video carica i metadati
+                    video.addEventListener('loadedmetadata', function() {
+                        popup.update();
+                    });
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else {
+                    popup._contentNode.classList.remove('media');
+                }
+            } else {
+                popup._contentNode.classList.remove('media');
+            }
+        }
+        var title = new L.Control({'position':'topleft'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h2>Neighborhoods with density that support heavy rail</h2>';
+        };
+        title.addTo(map);
+        var abstract = new L.Control({'position':'topleft'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div',
+            'leaflet-control abstract');
+            this._div.id = 'abstract'
+                this._div.setAttribute("onmouseenter", "abstract.show()");
+                this._div.setAttribute("onmouseleave", "abstract.hide()");
+                this.hide();
+                return this._div;
+            };
+            abstract.hide = function () {
+                this._div.classList.remove("abstractUncollapsed");
+                this._div.classList.add("abstract");
+                this._div.innerHTML = 'i'
+            }
+            abstract.show = function () {
+                this._div.classList.remove("abstract");
+                this._div.classList.add("abstractUncollapsed");
+                this._div.innerHTML = 'This map shows population density in Greater Boston from the 2020 Census. Each Census block is colored by nearby population density within a 1/4 mile circle around the block.<br /><br />Following the literature review in <i>Transit-Supportive Density in Greater Boston</i> (Boston Indicators and TransitMatters, 2025), we use <b>40 people per acre</b> as a benchmark for frequent, reliable service, such as subways and high-frequency regional rail. We use <b>15 people per acre</b> as a benchmark for moderate-frequency service, such as buses or trains every 30 minutes or better. Areas within 1/2 mile of Red, Orange and Blue Line stations have a median density of <b>27.3 people per acre</b>.<br /><br />Dashed regions are buffers around Census blocks whose density within 1/2 mile meets the high-frequency benchmark, so they show the extents of the "neighborhoods" whose residents contribute to such transit-supportive density.';
+        };
+        abstract.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        var populationCanvasRenderer = L.canvas({padding: 0.5, pane: 'pane_WebexportdatasetPopulationdensitywithin14mi_1'});
+        var initialViewBounds = L.latLngBounds(
+            [42.27, -71.26],
+            [42.49, -70.90]
+        );
+        function setBounds() {
+            map.invalidateSize({pan: false});
+            map.fitBounds(initialViewBounds, {animate: false});
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+            var mapResizeObserver = new ResizeObserver(function() {
+                map.invalidateSize({pan: false});
+            });
+            mapResizeObserver.observe(document.getElementById('map'));
+        }
+        map.createPane('pane_ESRIGraylight_0');
+        map.getPane('pane_ESRIGraylight_0').style.zIndex = 400;
+        var layer_ESRIGraylight_0 = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            pane: 'pane_ESRIGraylight_0',
+            opacity: 1.0,
+            attribution: '',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_ESRIGraylight_0;
+        map.addLayer(layer_ESRIGraylight_0);
+        function pop_WebexportdatasetPopulationdensitywithin14mi_1(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td class="visible-with-data" id="pax_per_acre_in_0p25mi_round_2_dec_place" colspan="2"><strong>Density in 1/4 mi (pax/acre)</strong><br />' + (feature.properties['pax_per_acre_in_0p25mi_round_2_dec_place'] !== null ? autolinker.link(String(feature.properties['pax_per_acre_in_0p25mi_round_2_dec_place']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td class="visible-with-data" id="pax_per_acre_in_0p5mi_round_2_dec_place" colspan="2"><strong>Density in 1/2 mi (pax/acre)</strong><br />' + (feature.properties['pax_per_acre_in_0p5mi_round_2_dec_place'] !== null ? autolinker.link(String(feature.properties['pax_per_acre_in_0p5mi_round_2_dec_place']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_WebexportdatasetPopulationdensitywithin14mi_1_0(feature) {
+            var density =
+                Number(feature.properties['population_0p25mi']) /
+                (Math.PI * Math.pow(5280 / 4, 2)) * 43560;
+            var fillColor = 'rgba(215,48,39,1.0)';
+            if (density <= 15) {
+                fillColor = 'rgba(237,237,237,1.0)';
+            } else if (density <= 27.33488) {
+                fillColor = 'rgba(217,239,139,1.0)';
+            } else if (density <= 40) {
+                fillColor = 'rgba(253,174,97,1.0)';
+            }
+            return {
+                pane: 'pane_WebexportdatasetPopulationdensitywithin14mi_1',
+                opacity: 1,
+                color: 'rgba(147,147,147,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 0.18897637795275593,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: fillColor,
+                interactive: true,
+            };
+        }
+        map.createPane('pane_WebexportdatasetPopulationdensitywithin14mi_1');
+        map.getPane('pane_WebexportdatasetPopulationdensitywithin14mi_1').style.zIndex = 401;
+        map.getPane('pane_WebexportdatasetPopulationdensitywithin14mi_1').style['mix-blend-mode'] = 'normal';
+        var layer_WebexportdatasetPopulationdensitywithin14mi_1 = new L.geoJson(json_WebexportdatasetPopulationdensitywithin14mi_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_WebexportdatasetPopulationdensitywithin14mi_1',
+            layerName: 'layer_WebexportdatasetPopulationdensitywithin14mi_1',
+            pane: 'pane_WebexportdatasetPopulationdensitywithin14mi_1',
+            renderer: populationCanvasRenderer,
+            onEachFeature: pop_WebexportdatasetPopulationdensitywithin14mi_1,
+            style: style_WebexportdatasetPopulationdensitywithin14mi_1_0,
+        });
+        bounds_group.addLayer(layer_WebexportdatasetPopulationdensitywithin14mi_1);
+        map.addLayer(layer_WebexportdatasetPopulationdensitywithin14mi_1);
+        function pop_Regionswithtransitsupportivedensity_2(feature, layer) {
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Regionswithtransitsupportivedensity_2_0() {
+            return {
+                pane: 'pane_Regionswithtransitsupportivedensity_2',
+                opacity: 1,
+                color: 'rgba(255,255,255,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 5.669291338582678, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,0,255,0.0)',
+                interactive: false,
+            }
+        }
+        function style_Regionswithtransitsupportivedensity_2_1() {
+            return {
+                pane: 'pane_Regionswithtransitsupportivedensity_2',
+                opacity: 1,
+                color: 'rgba(75,75,75,1.0)',
+                dashArray: '2.6456692913385824,5.291338582677165',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.6456692913385824, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(196,60,57,0.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Regionswithtransitsupportivedensity_2');
+        map.getPane('pane_Regionswithtransitsupportivedensity_2').style.zIndex = 402;
+        map.getPane('pane_Regionswithtransitsupportivedensity_2').style['mix-blend-mode'] = 'normal';
+        var layer_Regionswithtransitsupportivedensity_2 = new L.geoJson.multiStyle(json_Regionswithtransitsupportivedensity_2, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Regionswithtransitsupportivedensity_2',
+            layerName: 'layer_Regionswithtransitsupportivedensity_2',
+            pane: 'pane_Regionswithtransitsupportivedensity_2',
+            onEachFeature: pop_Regionswithtransitsupportivedensity_2,
+            styles: [style_Regionswithtransitsupportivedensity_2_0,style_Regionswithtransitsupportivedensity_2_1,]
+        });
+        bounds_group.addLayer(layer_Regionswithtransitsupportivedensity_2);
+        map.addLayer(layer_Regionswithtransitsupportivedensity_2);
+        function style_Rapidtransitstationsbuffered_3_0() {
+            return {
+                pane: 'pane_Rapidtransitstationsbuffered_3',
+                color: 'rgba(35,35,35,0)',
+                opacity: 0,
+                weight: 1,
+                lineJoin: 'bevel',
+                fill: true,
+                fillColor: '#EDEDED',
+                fillOpacity: 0.8980392156862745,
+                interactive: false
+            };
+        }
+        map.createPane('pane_Rapidtransitstationsbuffered_3');
+        map.getPane('pane_Rapidtransitstationsbuffered_3').style.zIndex = 403;
+        map.getPane('pane_Rapidtransitstationsbuffered_3').style['mix-blend-mode'] = 'normal';
+        var layer_Rapidtransitstationsbuffered_3 = new L.geoJson(json_Rapidtransitstationsbuffered_3, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Rapidtransitstationsbuffered_3',
+            layerName: 'layer_Rapidtransitstationsbuffered_3',
+            pane: 'pane_Rapidtransitstationsbuffered_3',
+            style: style_Rapidtransitstationsbuffered_3_0
+        });
+        var bufferModeControl = L.control({position: 'topright'});
+        bufferModeControl.onAdd = function(map) {
+            var container = L.DomUtil.create('div', 'leaflet-control buffer-mode-control');
+            container.setAttribute('role', 'group');
+            container.setAttribute('aria-label', 'Map area focus');
+
+            var allAreasButton = L.DomUtil.create('button', 'buffer-mode-option buffer-mode-option-active', container);
+            allAreasButton.type = 'button';
+            allAreasButton.textContent = 'All areas';
+            allAreasButton.setAttribute('aria-pressed', 'true');
+
+            var outsideWalkButton = L.DomUtil.create('button', 'buffer-mode-option', container);
+            outsideWalkButton.type = 'button';
+            outsideWalkButton.textContent = '>10-min walk from rapid transit';
+            outsideWalkButton.setAttribute('aria-pressed', 'false');
+
+            function updateBufferModeState() {
+                var outsideMode = map.hasLayer(layer_Rapidtransitstationsbuffered_3);
+                allAreasButton.classList.toggle('buffer-mode-option-active', !outsideMode);
+                outsideWalkButton.classList.toggle('buffer-mode-option-active', outsideMode);
+                allAreasButton.setAttribute('aria-pressed', String(!outsideMode));
+                outsideWalkButton.setAttribute('aria-pressed', String(outsideMode));
+            }
+
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.disableScrollPropagation(container);
+            L.DomEvent.on(allAreasButton, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                if (map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
+                    map.removeLayer(layer_Rapidtransitstationsbuffered_3);
+                }
+                updateBufferModeState();
+            });
+            L.DomEvent.on(outsideWalkButton, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                if (!map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
+                    map.addLayer(layer_Rapidtransitstationsbuffered_3);
+                }
+                updateBufferModeState();
+            });
+            map.on('layeradd layerremove', function(e) {
+                if (e.layer === layer_Rapidtransitstationsbuffered_3) {
+                    updateBufferModeState();
+                }
+            });
+            updateBufferModeState();
+            return container;
+        };
+        bufferModeControl.addTo(map);
+
+        var densityLegend = L.control({position: 'bottomleft'});
+        densityLegend.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-control map-density-legend');
+            div.innerHTML =
+                '<div class="map-density-legend-title">Density within 1/4 mi (pax/acre)</div>' +
+                '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#ededed"></span><span>0–15</span></div>' +
+                '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#d9ef8b"></span><span>15–27.3</span></div>' +
+                '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#fdae61"></span><span>27.3–40</span></div>' +
+                '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#d73027"></span><span>40+</span></div>' +
+                '<div class="map-density-legend-separator"></div>' +
+                '<div class="map-density-legend-row map-density-legend-region-row"><span class="map-density-legend-region-symbol"><span></span></span><span>Regions with transit-supportive density</span></div>';
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            return div;
+        };
+        densityLegend.addTo(map);
+        function pop_Labels_3(feature, layer) {
+            var rawPriority = feature.properties['is_priority'];
+            var isPriority = rawPriority === true || rawPriority === 1 ||
+                String(rawPriority).toLowerCase() === 'true' || String(rawPriority) === '1';
+            var labelClass = isPriority ? 'qgis-map-label qgis-map-label-priority' :
+                'qgis-map-label qgis-map-label-other';
+            layer.bindTooltip(String(feature.properties['name'] || ''), {
+                permanent: true,
+                direction: 'center',
+                className: labelClass,
+                interactive: false,
+                opacity: 1
+            });
+        }
+
+        function style_Labels_3_0() {
+            return {
+                fill: false,
+                stroke: false,
+                interactive: false
+            }
+        }
+        map.createPane('pane_Labels_3');
+        map.getPane('pane_Labels_3').style.zIndex = 404;
+        map.getPane('pane_Labels_3').style['mix-blend-mode'] = 'normal';
+        var layer_Labels_3 = new L.geoJson(json_Labels_3, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Labels_3',
+            layerName: 'layer_Labels_3',
+            pane: 'pane_Labels_3',
+            onEachFeature: pop_Labels_3,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Labels_3_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Labels_3);
+        map.addLayer(layer_Labels_3);
+        function refreshLabels_3Collisions() {
+            labelEngine.reset();
+            var mapRect = map.getContainer().getBoundingClientRect();
+            var labelId = 0;
+            layer_Labels_3.eachLayer(function(labelLayer) {
+                var tooltip = labelLayer.getTooltip && labelLayer.getTooltip();
+                if (!tooltip || !tooltip._container) {
+                    return;
+                }
+                var label = tooltip._container;
+                label.style.opacity = 1;
+                var rect = label.getBoundingClientRect();
+                if (!rect.width || !rect.height) {
+                    return;
+                }
+                var bottomLeft = map.containerPointToLatLng([
+                    rect.left - mapRect.left,
+                    rect.bottom - mapRect.top
+                ]);
+                var topRight = map.containerPointToLatLng([
+                    rect.right - mapRect.left,
+                    rect.top - mapRect.top
+                ]);
+                labelEngine.ingestLabel({
+                    bottomLeft: [bottomLeft.lng, bottomLeft.lat],
+                    topRight: [topRight.lng, topRight.lat]
+                }, ++labelId, 5, label, 'Labels_3_' + labelId, false);
+            });
+            labelEngine.update();
+        }
+        function scheduleLabels_3CollisionRefresh() {
+            requestAnimationFrame(function() {
+                requestAnimationFrame(refreshLabels_3Collisions);
+            });
+        }
+        map.on('zoomend moveend', scheduleLabels_3CollisionRefresh);
+        scheduleLabels_3CollisionRefresh();
+        function mbtaTransitColor(lineValue) {
+            switch (String(lineValue || '').toUpperCase()) {
+                case 'BLUE': return '#003DA5';
+                case 'GREEN': return '#00843D';
+                case 'ORANGE': return '#ED8B00';
+                case 'RED': return '#DA291C';
+                default: return '#212322';
+            }
+        }
+
+        function pop_RapidtransitlinesmanualShapeFile_4(feature, layer) {
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RapidtransitlinesmanualShapeFile_4_0(feature) {
+            return {
+                pane: 'pane_RapidtransitlinesmanualShapeFile_4',
+                opacity: 1,
+                color: '#FFFFFF',
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 3.8,
+                fillOpacity: 0,
+                interactive: false,
+            };
+        }
+        function style_RapidtransitlinesmanualShapeFile_4_1(feature) {
+            return {
+                pane: 'pane_RapidtransitlinesmanualShapeFile_4',
+                opacity: 1,
+                color: mbtaTransitColor(feature.properties['LINE']),
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 2,
+                fillOpacity: 0,
+                interactive: false,
+            };
+        }
+        map.createPane('pane_RapidtransitlinesmanualShapeFile_4');
+        map.getPane('pane_RapidtransitlinesmanualShapeFile_4').style.zIndex = 405;
+        map.getPane('pane_RapidtransitlinesmanualShapeFile_4').style['mix-blend-mode'] = 'normal';
+        var layer_RapidtransitlinesmanualShapeFile_4 = new L.geoJson.multiStyle(json_RapidtransitlinesmanualShapeFile_4, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_RapidtransitlinesmanualShapeFile_4',
+            layerName: 'layer_RapidtransitlinesmanualShapeFile_4',
+            pane: 'pane_RapidtransitlinesmanualShapeFile_4',
+            onEachFeature: pop_RapidtransitlinesmanualShapeFile_4,
+            styles: [style_RapidtransitlinesmanualShapeFile_4_0,style_RapidtransitlinesmanualShapeFile_4_1,]
+        });
+        bounds_group.addLayer(layer_RapidtransitlinesmanualShapeFile_4);
+        map.addLayer(layer_RapidtransitlinesmanualShapeFile_4);
+        function pop_RapidtransitstationsmanualShapeFile_5(feature, layer) {
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RapidtransitstationsmanualShapeFile_5_0(feature) {
+            return {
+                pane: 'pane_RapidtransitstationsmanualShapeFile_5',
+                radius: 3.75,
+                stroke: false,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: '#FFFFFF',
+                interactive: false,
+            };
+        }
+        function style_RapidtransitstationsmanualShapeFile_5_1(feature) {
+            return {
+                pane: 'pane_RapidtransitstationsmanualShapeFile_5',
+                radius: 2,
+                opacity: 1,
+                color: mbtaTransitColor(feature.properties['LINE']),
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: '#FFFFFF',
+                interactive: false,
+            };
+        }
+        map.createPane('pane_RapidtransitstationsmanualShapeFile_5');
+        map.getPane('pane_RapidtransitstationsmanualShapeFile_5').style.zIndex = 406;
+        map.getPane('pane_RapidtransitstationsmanualShapeFile_5').style['mix-blend-mode'] = 'normal';
+        var layer_RapidtransitstationsmanualShapeFile_5 = new L.geoJson.multiStyle(json_RapidtransitstationsmanualShapeFile_5, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_RapidtransitstationsmanualShapeFile_5',
+            layerName: 'layer_RapidtransitstationsmanualShapeFile_5',
+            pane: 'pane_RapidtransitstationsmanualShapeFile_5',
+            onEachFeature: pop_RapidtransitstationsmanualShapeFile_5,
+            styles: [],
+            pointToLayers: [function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_RapidtransitstationsmanualShapeFile_5_0(feature));
+            },function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_RapidtransitstationsmanualShapeFile_5_1(feature));
+            },
+        ]});
+        bounds_group.addLayer(layer_RapidtransitstationsmanualShapeFile_5);
+        map.addLayer(layer_RapidtransitstationsmanualShapeFile_5);
+        setBounds();
+        </script>
+    </body>
+</html>
