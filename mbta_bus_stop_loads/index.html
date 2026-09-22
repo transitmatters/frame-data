@@ -131,10 +131,19 @@
             position: 'topleft'
         }).addTo(map);
         var bounds_group = new L.featureGroup([]);
+        var initialViewBounds = L.latLngBounds(
+            [42.22, -71.24],
+            [42.45, -70.96]
+        );
         function setBounds() {
-            if (bounds_group.getLayers().length) {
-                map.fitBounds(bounds_group.getBounds());
-            }
+            map.invalidateSize({pan: false});
+            map.fitBounds(initialViewBounds, {animate: false});
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+            var mapResizeObserver = new ResizeObserver(function() {
+                map.invalidateSize({pan: false});
+            });
+            mapResizeObserver.observe(document.getElementById('map'));
         }
         map.createPane('pane_ESRIGraylight_0');
         map.getPane('pane_ESRIGraylight_0').style.zIndex = 400;
