@@ -125,37 +125,100 @@
                 popup._contentNode.classList.remove('media');
             }
         }
-        var title = new L.Control({'position':'topleft'});
-        title.onAdd = function (map) {
-            this._div = L.DomUtil.create('div', 'info');
-            this.update();
-            return this._div;
+        var bufferModeAllAreasButton;
+        var bufferModeOutsideWalkButton;
+        var mapHeaderControl = new L.Control({'position':'topleft'});
+        mapHeaderControl.onAdd = function (map) {
+            var container = L.DomUtil.create('div', 'map-header-control');
+
+            var titlePanel = L.DomUtil.create('div', 'info map-title-panel', container);
+            titlePanel.innerHTML = '<h2>Neighborhoods with density that support heavy rail</h2>';
+
+            var modeControl = L.DomUtil.create('div', 'buffer-mode-control', container);
+            modeControl.setAttribute('role', 'group');
+            modeControl.setAttribute('aria-label', 'Map area focus');
+
+            bufferModeAllAreasButton = L.DomUtil.create('button', 'buffer-mode-option buffer-mode-option-active', modeControl);
+            bufferModeAllAreasButton.type = 'button';
+            bufferModeAllAreasButton.textContent = 'All areas';
+            bufferModeAllAreasButton.setAttribute('aria-pressed', 'true');
+
+            bufferModeOutsideWalkButton = L.DomUtil.create('button', 'buffer-mode-option', modeControl);
+            bufferModeOutsideWalkButton.type = 'button';
+            bufferModeOutsideWalkButton.textContent = '>10-min walk from rapid transit';
+            bufferModeOutsideWalkButton.setAttribute('aria-pressed', 'false');
+
+            L.DomEvent.disableClickPropagation(titlePanel);
+            L.DomEvent.disableScrollPropagation(titlePanel);
+            L.DomEvent.disableClickPropagation(modeControl);
+            L.DomEvent.disableScrollPropagation(modeControl);
+            return container;
         };
-        title.update = function () {
-            this._div.innerHTML = '<h2>Neighborhoods with density that support heavy rail</h2>';
-        };
-        title.addTo(map);
+        mapHeaderControl.addTo(map);
+
+        var abstractText = 'This map shows population density in Greater Boston from the 2020 Census. Each Census block is colored by nearby population density within a 1/4 mile circle around the block.<br /><br />Following the literature review in <i>Transit-Supportive Density in Greater Boston</i> (Boston Indicators and TransitMatters, 2025), we use <b>40 people per acre</b> as a benchmark for frequent, reliable service, such as subways and high-frequency regional rail. We use <b>15 people per acre</b> as a benchmark for moderate-frequency service, such as buses or trains every 30 minutes or better. Areas within 1/2 mile of Red, Orange and Blue Line stations have a median density of <b>27.3 people per acre</b>.<br /><br />Dashed regions are buffers around Census blocks whose density within 1/2 mile meets the high-frequency benchmark, so they show the extents of the "neighborhoods" whose residents contribute to such transit-supportive density.';
         var abstract = new L.Control({'position':'topleft'});
         abstract.onAdd = function (map) {
-            this._div = L.DomUtil.create('div',
-            'leaflet-control abstract');
-            this._div.id = 'abstract'
-                this._div.setAttribute("onmouseenter", "abstract.show()");
-                this._div.setAttribute("onmouseleave", "abstract.hide()");
-                this.hide();
-                return this._div;
-            };
-            abstract.hide = function () {
-                this._div.classList.remove("abstractUncollapsed");
-                this._div.classList.add("abstract");
-                this._div.innerHTML = 'i'
-            }
-            abstract.show = function () {
-                this._div.classList.remove("abstract");
-                this._div.classList.add("abstractUncollapsed");
-                this._div.innerHTML = 'This map shows population density in Greater Boston from the 2020 Census. Each Census block is colored by nearby population density within a 1/4 mile circle around the block.<br /><br />Following the literature review in <i>Transit-Supportive Density in Greater Boston</i> (Boston Indicators and TransitMatters, 2025), we use <b>40 people per acre</b> as a benchmark for frequent, reliable service, such as subways and high-frequency regional rail. We use <b>15 people per acre</b> as a benchmark for moderate-frequency service, such as buses or trains every 30 minutes or better. Areas within 1/2 mile of Red, Orange and Blue Line stations have a median density of <b>27.3 people per acre</b>.<br /><br />Dashed regions are buffers around Census blocks whose density within 1/2 mile meets the high-frequency benchmark, so they show the extents of the "neighborhoods" whose residents contribute to such transit-supportive density.';
+            this._div = L.DomUtil.create('div', 'leaflet-control leaflet-bar abstract-control');
+            this._div.id = 'abstract';
+
+            this._button = L.DomUtil.create('a', 'abstract-button', this._div);
+            this._button.href = '#';
+            this._button.setAttribute('role', 'button');
+            this._button.setAttribute('aria-label', 'About this map');
+            this._button.setAttribute('aria-expanded', 'false');
+            this._button.textContent = 'i';
+
+            this._panel = L.DomUtil.create('div', 'abstractUncollapsed', this._div);
+            this._panel.innerHTML = abstractText;
+            this._panel.hidden = true;
+            this._panel.setAttribute('role', 'button');
+            this._panel.setAttribute('tabindex', '0');
+            this._panel.setAttribute('aria-label', 'Close map information');
+
+            L.DomEvent.disableClickPropagation(this._div);
+            L.DomEvent.disableScrollPropagation(this._div);
+            L.DomEvent.on(this._button, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                abstract.show();
+            });
+            L.DomEvent.on(this._button, 'keydown', function(e) {
+                if (e.key === ' ') {
+                    L.DomEvent.preventDefault(e);
+                    abstract.show();
+                }
+            });
+            L.DomEvent.on(this._panel, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                abstract.hide();
+            });
+            L.DomEvent.on(this._panel, 'keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    L.DomEvent.preventDefault(e);
+                    abstract.hide();
+                }
+            });
+            this.hide();
+            return this._div;
+        };
+        abstract.hide = function () {
+            this._div.classList.remove('abstract-expanded');
+            this._div.classList.add('leaflet-bar');
+            this._button.hidden = false;
+            this._panel.hidden = true;
+            this._button.setAttribute('aria-expanded', 'false');
+        };
+        abstract.show = function () {
+            this._div.classList.remove('leaflet-bar');
+            this._div.classList.add('abstract-expanded');
+            this._button.hidden = true;
+            this._panel.hidden = false;
+            this._button.setAttribute('aria-expanded', 'true');
         };
         abstract.addTo(map);
+        map.on('click', function() {
+            abstract.hide();
+        });
         var zoomControl = L.control.zoom({
             position: 'topleft'
         }).addTo(map);
@@ -323,67 +386,84 @@
             pane: 'pane_Rapidtransitstationsbuffered_3',
             style: style_Rapidtransitstationsbuffered_3_0
         });
-        var bufferModeControl = L.control({position: 'topright'});
-        bufferModeControl.onAdd = function(map) {
-            var container = L.DomUtil.create('div', 'leaflet-control buffer-mode-control');
-            container.setAttribute('role', 'group');
-            container.setAttribute('aria-label', 'Map area focus');
-
-            var allAreasButton = L.DomUtil.create('button', 'buffer-mode-option buffer-mode-option-active', container);
-            allAreasButton.type = 'button';
-            allAreasButton.textContent = 'All areas';
-            allAreasButton.setAttribute('aria-pressed', 'true');
-
-            var outsideWalkButton = L.DomUtil.create('button', 'buffer-mode-option', container);
-            outsideWalkButton.type = 'button';
-            outsideWalkButton.textContent = '>10-min walk from rapid transit';
-            outsideWalkButton.setAttribute('aria-pressed', 'false');
-
-            function updateBufferModeState() {
-                var outsideMode = map.hasLayer(layer_Rapidtransitstationsbuffered_3);
-                allAreasButton.classList.toggle('buffer-mode-option-active', !outsideMode);
-                outsideWalkButton.classList.toggle('buffer-mode-option-active', outsideMode);
-                allAreasButton.setAttribute('aria-pressed', String(!outsideMode));
-                outsideWalkButton.setAttribute('aria-pressed', String(outsideMode));
+        function updateBufferModeState() {
+            var outsideMode = map.hasLayer(layer_Rapidtransitstationsbuffered_3);
+            bufferModeAllAreasButton.classList.toggle('buffer-mode-option-active', !outsideMode);
+            bufferModeOutsideWalkButton.classList.toggle('buffer-mode-option-active', outsideMode);
+            bufferModeAllAreasButton.setAttribute('aria-pressed', String(!outsideMode));
+            bufferModeOutsideWalkButton.setAttribute('aria-pressed', String(outsideMode));
+        }
+        L.DomEvent.on(bufferModeAllAreasButton, 'click', function(e) {
+            L.DomEvent.preventDefault(e);
+            if (map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
+                map.removeLayer(layer_Rapidtransitstationsbuffered_3);
             }
-
-            L.DomEvent.disableClickPropagation(container);
-            L.DomEvent.disableScrollPropagation(container);
-            L.DomEvent.on(allAreasButton, 'click', function(e) {
-                L.DomEvent.preventDefault(e);
-                if (map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
-                    map.removeLayer(layer_Rapidtransitstationsbuffered_3);
-                }
-                updateBufferModeState();
-            });
-            L.DomEvent.on(outsideWalkButton, 'click', function(e) {
-                L.DomEvent.preventDefault(e);
-                if (!map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
-                    map.addLayer(layer_Rapidtransitstationsbuffered_3);
-                }
-                updateBufferModeState();
-            });
-            map.on('layeradd layerremove', function(e) {
-                if (e.layer === layer_Rapidtransitstationsbuffered_3) {
-                    updateBufferModeState();
-                }
-            });
             updateBufferModeState();
-            return container;
-        };
-        bufferModeControl.addTo(map);
+        });
+        L.DomEvent.on(bufferModeOutsideWalkButton, 'click', function(e) {
+            L.DomEvent.preventDefault(e);
+            if (!map.hasLayer(layer_Rapidtransitstationsbuffered_3)) {
+                map.addLayer(layer_Rapidtransitstationsbuffered_3);
+            }
+            updateBufferModeState();
+        });
+        map.on('layeradd layerremove', function(e) {
+            if (e.layer === layer_Rapidtransitstationsbuffered_3) {
+                updateBufferModeState();
+            }
+        });
+        updateBufferModeState();
 
         var densityLegend = L.control({position: 'bottomleft'});
         densityLegend.onAdd = function(map) {
             var div = L.DomUtil.create('div', 'leaflet-control map-density-legend');
-            div.innerHTML =
-                '<div class="map-density-legend-title">Density within 1/4 mi (pax/acre)</div>' +
+            var toggleButton = L.DomUtil.create('button', 'map-density-legend-toggle', div);
+            toggleButton.type = 'button';
+            var toggleLabel = L.DomUtil.create('span', 'map-density-legend-toggle-label', toggleButton);
+            var toggleIndicator = L.DomUtil.create('span', 'map-density-legend-toggle-indicator', toggleButton);
+            toggleIndicator.setAttribute('aria-hidden', 'true');
+
+            var body = L.DomUtil.create('div', 'map-density-legend-body', div);
+            body.innerHTML =
                 '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#ededed"></span><span>0–15</span></div>' +
                 '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#d9ef8b"></span><span>15–27.3</span></div>' +
                 '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#fdae61"></span><span>27.3–40</span></div>' +
                 '<div class="map-density-legend-row"><span class="map-density-legend-swatch" style="background:#d73027"></span><span>40+</span></div>' +
                 '<div class="map-density-legend-separator"></div>' +
                 '<div class="map-density-legend-row map-density-legend-region-row"><span class="map-density-legend-region-symbol"><span></span></span><span>Regions with transit-supportive density</span></div>';
+
+            function setLegendExpanded(expanded) {
+                div.classList.toggle('map-density-legend-collapsed', !expanded);
+                body.hidden = !expanded;
+                toggleButton.setAttribute('aria-expanded', String(expanded));
+                toggleLabel.textContent = expanded ? 'Density within 1/4 mi (pax/acre)' : 'Legend';
+                toggleIndicator.textContent = expanded ? '▾' : '▸';
+            }
+
+            var legendUserHasChosenState = false;
+            function syncLegendToMapWidth() {
+                if (legendUserHasChosenState) {
+                    return;
+                }
+                var mapWidth = map.getContainer().clientWidth;
+                if (mapWidth > 0) {
+                    setLegendExpanded(mapWidth > 700);
+                }
+            }
+
+            setLegendExpanded(false);
+            syncLegendToMapWidth();
+            if (typeof ResizeObserver !== 'undefined') {
+                div._legendResizeObserver = new ResizeObserver(syncLegendToMapWidth);
+                div._legendResizeObserver.observe(map.getContainer());
+            } else {
+                map.on('resize', syncLegendToMapWidth);
+            }
+            L.DomEvent.on(toggleButton, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                legendUserHasChosenState = true;
+                setLegendExpanded(toggleButton.getAttribute('aria-expanded') !== 'true');
+            });
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
             return div;
