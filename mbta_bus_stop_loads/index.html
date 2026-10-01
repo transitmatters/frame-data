@@ -133,6 +133,82 @@
                 popup._contentNode.classList.remove('media');
             }
         }
+        var mapHeaderControl = new L.Control({'position':'topleft'});
+        mapHeaderControl.onAdd = function (map) {
+            var container = L.DomUtil.create('div', 'map-header-control');
+
+            var titlePanel = L.DomUtil.create('div', 'info map-title-panel', container);
+            titlePanel.innerHTML = '<h2>MBTA Bus Corridor Ridership, Fall 2025</h2>';
+
+            L.DomEvent.disableClickPropagation(titlePanel);
+            L.DomEvent.disableScrollPropagation(titlePanel);
+            return container;
+        };
+        mapHeaderControl.addTo(map);
+
+        var abstractText = 'This map shows estimated weekday passenger volume along MBTA bus corridors in Fall 2025. Each segment shows all passenger load carried in that direction between its stop endpoints on an average weekday, summed across all MBTA bus routes and trips. Each passenger count towards all segments that their trip traverses. Note that the map does not directly show boardings and alightings. Source: Official MBTA bus ridership data.';
+        var abstract = new L.Control({'position':'topleft'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'leaflet-control leaflet-bar abstract-control');
+            this._div.id = 'abstract';
+
+            this._button = L.DomUtil.create('a', 'abstract-button', this._div);
+            this._button.href = '#';
+            this._button.setAttribute('role', 'button');
+            this._button.setAttribute('aria-label', 'About this map');
+            this._button.setAttribute('aria-expanded', 'false');
+            this._button.textContent = 'i';
+
+            this._panel = L.DomUtil.create('div', 'abstractUncollapsed', this._div);
+            this._panel.innerHTML = abstractText;
+            this._panel.hidden = true;
+            this._panel.setAttribute('role', 'button');
+            this._panel.setAttribute('tabindex', '0');
+            this._panel.setAttribute('aria-label', 'Close map information');
+
+            L.DomEvent.disableClickPropagation(this._div);
+            L.DomEvent.disableScrollPropagation(this._div);
+            L.DomEvent.on(this._button, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                abstract.show();
+            });
+            L.DomEvent.on(this._button, 'keydown', function(e) {
+                if (e.key === ' ') {
+                    L.DomEvent.preventDefault(e);
+                    abstract.show();
+                }
+            });
+            L.DomEvent.on(this._panel, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                abstract.hide();
+            });
+            L.DomEvent.on(this._panel, 'keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    L.DomEvent.preventDefault(e);
+                    abstract.hide();
+                }
+            });
+            this.hide();
+            return this._div;
+        };
+        abstract.hide = function () {
+            this._div.classList.remove('abstract-expanded');
+            this._div.classList.add('leaflet-bar');
+            this._button.hidden = false;
+            this._panel.hidden = true;
+            this._button.setAttribute('aria-expanded', 'false');
+        };
+        abstract.show = function () {
+            this._div.classList.remove('leaflet-bar');
+            this._div.classList.add('abstract-expanded');
+            this._button.hidden = true;
+            this._panel.hidden = false;
+            this._button.setAttribute('aria-expanded', 'true');
+        };
+        abstract.addTo(map);
+        map.on('click', function() {
+            abstract.hide();
+        });
         var zoomControl = L.control.zoom({
             position: 'topleft'
         }).addTo(map);

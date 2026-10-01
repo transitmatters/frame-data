@@ -21,7 +21,29 @@
             border-radius: 5px;
         }
         .info h2 {
-            margin: 0 0 5px;
+            margin: 0;
+        }
+        .leaflet-control.map-header-control {
+            position: relative;
+            display: flex;
+            width: calc(100vw - 20px);
+            box-sizing: border-box;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            box-shadow: none !important;
+            border-radius: 0;
+            pointer-events: none;
+        }
+        .map-title-panel {
+            flex: 0 1 620px;
+            min-width: 0;
+            max-width: 620px;
+            box-sizing: border-box;
+            pointer-events: auto;
+        }
+        .map-title-panel h2 {
+            overflow-wrap: break-word;
         }
         .leaflet-container {
             background: #fff;
@@ -73,15 +95,19 @@
             border-radius: 0px !important;
             color: #444444 !important;
         }
-        .abstract {
+        .abstract-button {
             font: bold 18px 'Lucida Console', Monaco, monospace;
             text-indent: 1px;
             background-color: #f8f8f8 !important;
-            width: 30px !important;
             color: #444444 !important;
-            height: 30px !important;
-            text-align: center !important;
-            line-height: 30px !important;
+            cursor: pointer;
+        }
+        .leaflet-touch .abstract-button {
+            font-size: 22px;
+        }
+        .abstract-control.abstract-expanded {
+            box-shadow: none !important;
+            border-radius: 0;
         }
         .abstractUncollapsed {
             padding: 6px 8px;
@@ -90,7 +116,12 @@
             color: #444444 !important;
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 5px;
-            max-width: 40%;
+            width: min(420px, calc(100vw - 40px));
+            max-width: calc(100vw - 40px);
+            max-height: calc(100vh - 120px);
+            box-sizing: border-box;
+            overflow-y: auto;
+            cursor: pointer;
         }
         .leaflet-control {
             box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4)!important;
@@ -197,4 +228,24 @@
         .leaflet-marker-icon{
             white-space: nowrap;
         }
+@media (max-width: 700px) {
+    .map-header-control {
+        display: block;
+    }
+    .map-title-panel {
+        max-width: 100%;
+        width: fit-content;
+    }
+}
+@media (max-width: 600px) {
+    .map-title-panel h2 {
+        font-size: 20px;
+        line-height: 1.08;
+    }
+    .abstractUncollapsed {
+        width: calc(100vw - 40px);
+        max-width: calc(100vw - 40px);
+        max-height: calc(100vh - 170px);
+    }
+}
         
